@@ -44,6 +44,11 @@ export default function SlideToDelete({
   const handleEnd = useCallback(() => {
     if (!dragging) return;
     setDragging(false);
+    // Guard: only confirm if track was measured and user actually dragged far enough
+    if (trackWidth.current <= 0 || offsetX <= 0) {
+      setOffsetX(0);
+      return;
+    }
     const pct = offsetX / trackWidth.current;
     if (pct >= THRESHOLD) {
       setConfirmed(true);

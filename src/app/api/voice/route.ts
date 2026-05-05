@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     // Forward to Sarvam.ai
     const sarvamForm = new FormData();
     sarvamForm.append('file', audio, 'audio.webm');
-    sarvamForm.append('model', 'saarika:v2');
+    sarvamForm.append('model', 'saarika:v2.5');
     sarvamForm.append('language_code', 'unknown'); // auto-detect Hi/Kn/En
 
     const res = await fetch('https://api.sarvam.ai/speech-to-text', {

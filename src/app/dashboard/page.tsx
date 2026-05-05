@@ -2,16 +2,22 @@
 
 export const dynamic = 'force-dynamic';
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { format } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+import { X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { CATEGORIES, formatINR, PAYMENT_MODES, getAllCategories } from '@/lib/constants';
 import { useAppStore } from '@/store';
 import type { Entry, Project } from '@/types';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { activeProjectId, setActiveProject, customCategories, hiddenCategories } = useAppStore();
   const allCategories = getAllCategories(customCategories, hiddenCategories);
+  const [showCredits, setShowCredits] = useState(false);
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
@@ -32,9 +38,8 @@ export default function DashboardPage() {
   });
 
   const totalSpent = entries.reduce((s, e) => s + Number(e.amount), 0);
-  const totalCredit = entries
-    .filter((e) => e.is_credit)
-    .reduce((s, e) => s + Number(e.amount), 0);
+  const creditEntries = entries.filter((e) => e.is_credit);
+  const totalCredit = creditEntries.reduce((s, e) => s + Number(e.amount), 0);
 
   const activeProject = projects.find((p) => p.id === activeProjectId);
   const totalBudget = activeProject?.budget ?? projects.reduce((s, p) => s + Number(p.budget), 0);
@@ -84,8 +89,17 @@ export default function DashboardPage() {
         {/* KPIs */}
         <div className="grid grid-cols-2 gap-3">
           <KpiCard label="Total Spent" value={formatINR(totalSpent)} />
-          <KpiCard label="Entries" value={entries.length.toString()} />
-          <KpiCard label="Outstanding Credit" value={formatINR(totalCredit)} accent="bg-orange-200" />
+          <KpiCard
+            label="Entries"
+            value={entries.length.toString()}
+            onClick={() => router.push('/')}
+          />
+          <KpiCard
+            label="Outstanding Credit"
+            value={formatINR(totalCredit)}
+            accent="bg-orange-200"
+            onClick={() => creditEntries.length > 0 && setShowCredits(true)}
+          />
           <KpiCard label="Budget" value={formatINR(totalBudget)} />
         </div>
 
@@ -166,6 +180,44 @@ export default function DashboardPage() {
           </section>
         )}
       </div>
+
+      {/* Outstanding credit modal */}
+      {showCredits && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-white">
+          <header className="flex items-center justify-between border-b-4 border-black bg-orange-200 px-4 py-3">
+            <h2 className="text-xl font-black uppercase">Outstanding Credit</h2>
+            <button
+              onClick={() => setShowCredits(false)}
+              className="flex h-10 w-10 items-center justify-center border-2 border-black bg-white shadow-[3px_3px_0_0_#000]"
+            >
+              <X strokeWidth={3} />
+            </button>
+          </header>
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="mb-4 border-4 border-black bg-orange-100 p-4 shadow-[4px_4px_0_0_#000]">
+              <p className="text-xs font-black uppercase">Total Outstanding</p>
+              <p className="text-3xl font-black">{formatINR(totalCredit)}</p>
+            </div>
+            <div className="space-y-2">
+              {creditEntries.map((e) => {
+                const cat = allCategories[e.category] ?? { icon: '📌', label: e.category };
+                return (
+                  <div key={e.id} className="flex items-center gap-3 border-2 border-black p-3">
+                    <span className="text-2xl">{cat.icon}</span>
+                    <div className="flex-1 overflow-hidden">
+                      <p className="truncate text-sm font-bold">{e.description}</p>
+                      <p className="text-xs text-gray-500">
+                        {format(new Date(e.entry_date), 'dd MMM')} · {cat.label}
+                      </p>
+                    </div>
+                    <p className="text-base font-black text-red-700">{formatINR(Number(e.amount))}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -174,15 +226,24 @@ function KpiCard({
   label,
   value,
   accent,
+  onClick,
 }: {
   label: string;
   value: string;
   accent?: string;
+  onClick?: () => void;
 }) {
+  const Tag = onClick ? 'button' : 'div';
   return (
-    <div className={`border-4 border-black ${accent ?? 'bg-white'} p-3 shadow-[4px_4px_0_0_#000]`}>
+    <Tag
+      onClick={onClick}
+      className={`border-4 border-black ${accent ?? 'bg-white'} p-3 shadow-[4px_4px_0_0_#000] text-left ${
+        onClick ? 'active:translate-x-1 active:translate-y-1 active:shadow-none' : ''
+      }`}
+    >
       <p className="text-xs font-black uppercase">{label}</p>
       <p className="text-xl font-black">{value}</p>
-    </div>
+      {onClick && <p className="mt-1 text-[10px] text-gray-500">Tap to view</p>}
+    </Tag>
   );
 }

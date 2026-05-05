@@ -8,6 +8,7 @@ import { Plus, LogOut, Trash2, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/store';
 import { formatINR, CATEGORIES, getAllCategories } from '@/lib/constants';
+import SlideToDelete from '@/components/SlideToDelete';
 import type { Project } from '@/types';
 
 const EMOJI_OPTIONS = ['🔧', '🏠', '🪣', '⚡', '🔩', '🧰', '📦', '🛒', '🪵', '🚿', '🪟', '🧹', '🎨', '🔑', '🪜'];
@@ -23,6 +24,8 @@ export default function SettingsPage() {
   const [catLabel, setCatLabel] = useState('');
   const [catIcon, setCatIcon] = useState('🔧');
   const [catColor, setCatColor] = useState('#FFD93D');
+
+  const [deletingProject, setDeletingProject] = useState<Project | null>(null);
 
   const allCategories = getAllCategories(customCategories, []);  // show all in settings, including hidden
   const defaultCategoryKeys = Object.keys(CATEGORIES);
@@ -119,12 +122,7 @@ export default function SettingsPage() {
                   <Check className="mx-2 h-5 w-5" strokeWidth={3} />
                 )}
                 <button
-                  onClick={() => {
-                    if (confirm(`Delete project "${p.name}"? All entries will be deleted too.`)) {
-                      deleteProject.mutate(p.id);
-                      if (activeProjectId === p.id) setActiveProject(null);
-                    }
-                  }}
+                  onClick={() => setDeletingProject(p)}
                   className="flex h-8 w-8 items-center justify-center border border-black bg-red-300"
                 >
                   <Trash2 className="h-4 w-4" strokeWidth={3} />
@@ -322,6 +320,17 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+      )}
+      {deletingProject && (
+        <SlideToDelete
+          label={`Delete "${deletingProject.name}"?`}
+          onConfirm={() => {
+            deleteProject.mutate(deletingProject.id);
+            if (activeProjectId === deletingProject.id) setActiveProject(null);
+            setDeletingProject(null);
+          }}
+          onCancel={() => setDeletingProject(null)}
+        />
       )}
     </main>
   );
