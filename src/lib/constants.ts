@@ -16,7 +16,22 @@ export const CATEGORIES = {
   misc: { label: 'Miscellaneous', icon: '📌', color: '#B0B0B0' },
 } as const;
 
-export type CategoryKey = keyof typeof CATEGORIES;
+export type CategoryKey = keyof typeof CATEGORIES | string;
+
+export type CategoryInfo = { label: string; icon: string; color: string };
+
+/**
+ * Merge default categories with custom ones from the store.
+ */
+export function getAllCategories(
+  custom: { key: string; label: string; icon: string; color: string }[]
+): Record<string, CategoryInfo> {
+  const merged: Record<string, CategoryInfo> = { ...CATEGORIES };
+  for (const c of custom) {
+    merged[c.key] = { label: c.label, icon: c.icon, color: c.color };
+  }
+  return merged;
+}
 
 export const LABOR_TYPES = [
   { name: 'Mason', default_rate: 800 },

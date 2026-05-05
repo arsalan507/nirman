@@ -24,30 +24,46 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  async function sendOtp() {
-    setBusy(true);
+  function sendOtp() {
+    if (phone.replace(/\D/g, '').length < 10) return;
     setError(null);
-    const formatted = phone.startsWith('+') ? phone : `+91${phone.replace(/\D/g, '')}`;
-    const { error } = await supabase.auth.signInWithOtp({ phone: formatted });
-    setBusy(false);
-    if (error) {
-      setError(error.message);
-    } else {
-      setStep('otp');
-    }
+    setStep('otp');
   }
 
   async function verifyOtp() {
     setBusy(true);
     setError(null);
-    const formatted = phone.startsWith('+') ? phone : `+91${phone.replace(/\D/g, '')}`;
-    const { error } = await supabase.auth.verifyOtp({
-      phone: formatted,
-      token: otp,
-      type: 'sms',
+
+    if (otp !== '0000') {
+      setError('Wrong OTP. Enter 0000');
+      setBusy(false);
+      return;
+    }
+
+    // Use phone as fake email for Supabase session (RLS needs a real user)
+    const digits = phone.replace(/\D/g, '').slice(-10);
+    const fakeEmail = `${digits}@nirman.local`;
+    const password = `nirman-${digits}-0000`;
+
+    // Try sign in first, then sign up if new user
+    const { error: signInErr } = await supabase.auth.signInWithPassword({
+      email: fakeEmail,
+      password,
     });
+
+    if (signInErr) {
+      const { error: signUpErr } = await supabase.auth.signUp({
+        email: fakeEmail,
+        password,
+      });
+      if (signUpErr) {
+        setError(signUpErr.message);
+        setBusy(false);
+        return;
+      }
+    }
+
     setBusy(false);
-    if (error) setError(error.message);
   }
 
   if (loading) {
@@ -76,38 +92,40 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
                 placeholder="9916516507"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendOtp()}
                 className="w-full border-2 border-black px-3 py-3 text-lg font-bold"
               />
               <button
                 onClick={sendOtp}
-                disabled={busy || phone.length < 10}
+                disabled={phone.replace(/\D/g, '').length < 10}
                 className="mt-4 w-full border-4 border-black bg-green-400 py-3 text-lg font-black uppercase shadow-[4px_4px_0_0_#000] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-50"
               >
-                {busy ? 'Sending...' : 'Send OTP'}
+                Send OTP
               </button>
             </>
           ) : (
             <>
               <label className="mb-1 block text-xs font-black uppercase">
-                Enter 6-digit OTP
+                Enter 4-digit OTP
               </label>
               <input
                 type="tel"
                 inputMode="numeric"
-                maxLength={6}
+                maxLength={4}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && otp.length === 4 && verifyOtp()}
                 className="w-full border-2 border-black px-3 py-3 text-2xl font-black tracking-widest"
               />
               <button
                 onClick={verifyOtp}
-                disabled={busy || otp.length !== 6}
+                disabled={busy || otp.length !== 4}
                 className="mt-4 w-full border-4 border-black bg-green-400 py-3 text-lg font-black uppercase shadow-[4px_4px_0_0_#000] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-50"
               >
                 {busy ? 'Verifying...' : 'Verify & Enter'}
               </button>
               <button
-                onClick={() => setStep('phone')}
+                onClick={() => { setStep('phone'); setOtp(''); setError(null); }}
                 className="mt-2 w-full text-xs underline"
               >
                 Change number

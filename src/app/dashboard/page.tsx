@@ -5,12 +5,13 @@ export const dynamic = 'force-dynamic';
 import { useQuery } from '@tanstack/react-query';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { supabase } from '@/lib/supabase';
-import { CATEGORIES, formatINR, PAYMENT_MODES } from '@/lib/constants';
+import { CATEGORIES, formatINR, PAYMENT_MODES, getAllCategories } from '@/lib/constants';
 import { useAppStore } from '@/store';
 import type { Entry, Project } from '@/types';
 
 export default function DashboardPage() {
-  const { activeProjectId } = useAppStore();
+  const { activeProjectId, setActiveProject, customCategories } = useAppStore();
+  const allCategories = getAllCategories(customCategories);
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
@@ -44,12 +45,10 @@ export default function DashboardPage() {
     acc[e.category] = (acc[e.category] ?? 0) + Number(e.amount);
     return acc;
   }, {});
-  const categoryData = Object.entries(byCategory).map(([key, value]) => ({
-    name: CATEGORIES[key as keyof typeof CATEGORIES].label,
-    value,
-    color: CATEGORIES[key as keyof typeof CATEGORIES].color,
-    icon: CATEGORIES[key as keyof typeof CATEGORIES].icon,
-  })).sort((a, b) => b.value - a.value);
+  const categoryData = Object.entries(byCategory).map(([key, value]) => {
+    const cat = allCategories[key] ?? { label: key, color: '#B0B0B0', icon: '📌' };
+    return { name: cat.label, value, color: cat.color, icon: cat.icon };
+  }).sort((a, b) => b.value - a.value);
 
   // Payment mode breakdown
   const byPayment = entries.reduce<Record<string, number>>((acc, e) => {
@@ -69,9 +68,16 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-white pb-32">
       <header className="border-b-4 border-black bg-yellow-300 px-4 py-6">
         <h1 className="text-3xl font-black uppercase">Dashboard</h1>
-        {activeProject && (
-          <p className="text-sm font-bold">{activeProject.name}</p>
-        )}
+        <select
+          value={activeProjectId ?? ''}
+          onChange={(e) => setActiveProject(e.target.value || null)}
+          className="mt-2 w-full border-2 border-black bg-white px-3 py-2 text-sm font-bold"
+        >
+          <option value="">All Projects</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
       </header>
 
       <div className="space-y-4 p-4">

@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { Plus, Pencil, Share2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { CATEGORIES, formatINR } from '@/lib/constants';
+import { CATEGORIES, formatINR, getAllCategories } from '@/lib/constants';
 import EntryForm from '@/components/EntryForm';
 import { useAppStore } from '@/store';
 import { formatEntryAsInvoice, shareToWhatsApp } from '@/lib/whatsapp';
@@ -16,7 +16,8 @@ import type { Entry, Project } from '@/types';
 export default function HomePage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Entry | null>(null);
-  const { activeProjectId } = useAppStore();
+  const { activeProjectId, customCategories } = useAppStore();
+  const allCategories = getAllCategories(customCategories);
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
@@ -78,7 +79,7 @@ export default function HomePage() {
 
       <div className="divide-y-2 divide-black">
         {entries.map((e) => {
-          const cat = CATEGORIES[e.category];
+          const cat = allCategories[e.category] ?? { label: e.category, icon: '📌', color: '#B0B0B0' };
           const proj = projectMap.get(e.project_id);
           return (
             <div key={e.id} className="flex items-center gap-3 px-4 py-3">

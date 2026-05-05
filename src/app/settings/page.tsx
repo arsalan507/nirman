@@ -7,15 +7,25 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, LogOut, Trash2, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/store';
-import { formatINR } from '@/lib/constants';
+import { formatINR, CATEGORIES, getAllCategories } from '@/lib/constants';
 import type { Project } from '@/types';
+
+const EMOJI_OPTIONS = ['🔧', '🏠', '🪣', '⚡', '🔩', '🧰', '📦', '🛒', '🪵', '🚿', '🪟', '🧹', '🎨', '🔑', '🪜'];
+const COLOR_OPTIONS = ['#FFD93D', '#FF9F43', '#7FFF9F', '#74C0FC', '#9775FA', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FF69B4', '#B0B0B0'];
 
 export default function SettingsPage() {
   const qc = useQueryClient();
-  const { activeProjectId, setActiveProject } = useAppStore();
+  const { activeProjectId, setActiveProject, customCategories, addCategory, removeCategory } = useAppStore();
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState('');
   const [budget, setBudget] = useState('');
+  const [showAddCat, setShowAddCat] = useState(false);
+  const [catLabel, setCatLabel] = useState('');
+  const [catIcon, setCatIcon] = useState('🔧');
+  const [catColor, setCatColor] = useState('#FFD93D');
+
+  const allCategories = getAllCategories(customCategories);
+  const defaultCategoryKeys = Object.keys(CATEGORIES);
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
@@ -124,6 +134,44 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        {/* Categories */}
+        <section className="border-4 border-black bg-white p-4 shadow-[4px_4px_0_0_#000]">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-black uppercase">Categories</h2>
+            <button
+              onClick={() => setShowAddCat(true)}
+              className="flex items-center gap-1 border-2 border-black bg-yellow-300 px-3 py-1 text-xs font-black uppercase shadow-[3px_3px_0_0_#000]"
+            >
+              <Plus className="h-4 w-4" /> New
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {Object.entries(allCategories).map(([key, cat]) => {
+              const isDefault = defaultCategoryKeys.includes(key);
+              return (
+                <div
+                  key={key}
+                  className="flex items-center justify-between border-2 border-black p-3"
+                  style={{ backgroundColor: cat.color + '33' }}
+                >
+                  <span className="font-bold">
+                    {cat.icon} {cat.label}
+                  </span>
+                  {!isDefault && (
+                    <button
+                      onClick={() => removeCategory(key)}
+                      className="flex h-8 w-8 items-center justify-center border border-black bg-red-300"
+                    >
+                      <Trash2 className="h-4 w-4" strokeWidth={3} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
         {/* Sign out */}
         <button
           onClick={async () => {
@@ -179,6 +227,80 @@ export default function SettingsPage() {
                 className="border-2 border-black bg-green-400 py-3 font-black uppercase shadow-[3px_3px_0_0_#000] disabled:opacity-50"
               >
                 {addProject.isPending ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Add category modal */}
+      {showAddCat && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center">
+          <div className="w-full max-w-md border-4 border-black bg-white p-6 shadow-[8px_8px_0_0_#000]">
+            <h3 className="mb-4 text-xl font-black uppercase">New Category</h3>
+            <label className="mb-1 block text-xs font-black uppercase">
+              Category Name
+            </label>
+            <input
+              type="text"
+              value={catLabel}
+              onChange={(e) => setCatLabel(e.target.value)}
+              placeholder="e.g. Interior Work"
+              className="mb-3 w-full border-2 border-black px-3 py-3 text-base"
+            />
+            <label className="mb-1 block text-xs font-black uppercase">
+              Pick Icon
+            </label>
+            <div className="mb-3 flex flex-wrap gap-2">
+              {EMOJI_OPTIONS.map((e) => (
+                <button
+                  type="button"
+                  key={e}
+                  onClick={() => setCatIcon(e)}
+                  className={`flex h-10 w-10 items-center justify-center border-2 text-xl ${
+                    catIcon === e ? 'border-black bg-yellow-300' : 'border-gray-300'
+                  }`}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+            <label className="mb-1 block text-xs font-black uppercase">
+              Pick Color
+            </label>
+            <div className="mb-4 flex flex-wrap gap-2">
+              {COLOR_OPTIONS.map((c) => (
+                <button
+                  type="button"
+                  key={c}
+                  onClick={() => setCatColor(c)}
+                  className={`h-10 w-10 border-2 ${
+                    catColor === c ? 'border-black shadow-[2px_2px_0_0_#000]' : 'border-gray-300'
+                  }`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setShowAddCat(false)}
+                className="border-2 border-black bg-white py-3 font-black uppercase"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!catLabel) return;
+                  const key = catLabel.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+                  addCategory({ key, label: catLabel, icon: catIcon, color: catColor });
+                  setShowAddCat(false);
+                  setCatLabel('');
+                  setCatIcon('🔧');
+                  setCatColor('#FFD93D');
+                }}
+                disabled={!catLabel}
+                className="border-2 border-black bg-green-400 py-3 font-black uppercase shadow-[3px_3px_0_0_#000] disabled:opacity-50"
+              >
+                Save
               </button>
             </div>
           </div>

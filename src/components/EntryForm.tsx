@@ -13,6 +13,7 @@ import {
   LABOR_TYPES,
   MATERIALS,
   formatINR,
+  getAllCategories,
   type CategoryKey,
   type PaymentMode,
 } from '@/lib/constants';
@@ -62,7 +63,8 @@ export default function EntryForm({
   initialData?: Entry;
 }) {
   const qc = useQueryClient();
-  const { activeProjectId, lastPaymentMode, setLastPaymentMode } = useAppStore();
+  const { activeProjectId, lastPaymentMode, setLastPaymentMode, customCategories } = useAppStore();
+  const allCategories = getAllCategories(customCategories);
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
@@ -236,9 +238,8 @@ export default function EntryForm({
           {/* Amount */}
           <Field label="Amount (₹)" error={errors.amount?.message}>
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
-              step="0.01"
               placeholder="0"
               {...register('amount')}
               className={`${inputClass} text-3xl font-black`}
@@ -258,7 +259,7 @@ export default function EntryForm({
           {/* Category — big tile picker */}
           <Field label="Category">
             <div className="grid grid-cols-2 gap-2">
-              {Object.entries(CATEGORIES).map(([key, cat]) => (
+              {Object.entries(allCategories).map(([key, cat]) => (
                 <button
                   type="button"
                   key={key}
@@ -293,7 +294,7 @@ export default function EntryForm({
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Workers">
                     <input
-                      type="number"
+                      type="text"
                       inputMode="numeric"
                       {...register('worker_count')}
                       className={inputClass}
@@ -301,7 +302,7 @@ export default function EntryForm({
                   </Field>
                   <Field label="Rate / day">
                     <input
-                      type="number"
+                      type="text"
                       inputMode="decimal"
                       {...register('daily_rate')}
                       className={inputClass}
@@ -327,9 +328,8 @@ export default function EntryForm({
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Quantity">
                   <input
-                    type="number"
+                    type="text"
                     inputMode="decimal"
-                    step="0.01"
                     {...register('quantity')}
                     className={inputClass}
                   />
