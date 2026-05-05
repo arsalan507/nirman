@@ -15,7 +15,7 @@ const COLOR_OPTIONS = ['#FFD93D', '#FF9F43', '#7FFF9F', '#74C0FC', '#9775FA', '#
 
 export default function SettingsPage() {
   const qc = useQueryClient();
-  const { activeProjectId, setActiveProject, customCategories, addCategory, removeCategory } = useAppStore();
+  const { activeProjectId, setActiveProject, customCategories, addCategory, removeCategory, hiddenCategories, hideCategory, unhideCategory } = useAppStore();
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState('');
   const [budget, setBudget] = useState('');
@@ -24,7 +24,7 @@ export default function SettingsPage() {
   const [catIcon, setCatIcon] = useState('🔧');
   const [catColor, setCatColor] = useState('#FFD93D');
 
-  const allCategories = getAllCategories(customCategories);
+  const allCategories = getAllCategories(customCategories, []);  // show all in settings, including hidden
   const defaultCategoryKeys = Object.keys(CATEGORIES);
 
   const { data: projects = [] } = useQuery({
@@ -149,23 +149,40 @@ export default function SettingsPage() {
           <div className="space-y-2">
             {Object.entries(allCategories).map(([key, cat]) => {
               const isDefault = defaultCategoryKeys.includes(key);
+              const isHidden = hiddenCategories.includes(key);
               return (
                 <div
                   key={key}
-                  className="flex items-center justify-between border-2 border-black p-3"
+                  className={`flex items-center justify-between border-2 border-black p-3 ${isHidden ? 'opacity-40' : ''}`}
                   style={{ backgroundColor: cat.color + '33' }}
                 >
                   <span className="font-bold">
                     {cat.icon} {cat.label}
+                    {isHidden && <span className="ml-2 text-xs text-gray-500">(hidden)</span>}
                   </span>
-                  {!isDefault && (
-                    <button
-                      onClick={() => removeCategory(key)}
-                      className="flex h-8 w-8 items-center justify-center border border-black bg-red-300"
-                    >
-                      <Trash2 className="h-4 w-4" strokeWidth={3} />
-                    </button>
-                  )}
+                  <div className="flex gap-2">
+                    {isHidden ? (
+                      <button
+                        onClick={() => unhideCategory(key)}
+                        className="border-2 border-black bg-green-300 px-3 py-1 text-xs font-black uppercase"
+                      >
+                        Restore
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          if (isDefault) {
+                            hideCategory(key);
+                          } else {
+                            removeCategory(key);
+                          }
+                        }}
+                        className="flex h-8 w-8 items-center justify-center border border-black bg-red-300"
+                      >
+                        <Trash2 className="h-4 w-4" strokeWidth={3} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
