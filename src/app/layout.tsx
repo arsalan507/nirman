@@ -37,10 +37,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-white antialiased">
+      <body className="bg-gray-50 text-gray-900 antialiased">
         <Providers>
           <AuthGate>
-            <div className="mx-auto max-w-md">{children}</div>
+            <div className="mx-auto min-h-screen max-w-md pb-24">{children}</div>
             <BottomNav />
           </AuthGate>
         </Providers>

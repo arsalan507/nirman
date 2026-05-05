@@ -2,142 +2,214 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { fetchProfile, createOrgAndProfile } from '@/lib/auth-helpers';
+import { useAppStore } from '@/store';
+import * as ui from '@/lib/ui';
 import type { Session } from '@supabase/supabase-js';
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
-  const [step, setStep] = useState<'phone' | 'otp'>('phone');
+  const [pin, setPin] = useState('');
+  const [name, setName] = useState('');
+  const [step, setStep] = useState<'login' | 'register'>('login');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { setProfile, setOrganization, profile } = useAppStore();
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
+      if (data.session?.user) {
+        const result = await fetchProfile(data.session.user.id);
+        if (result) {
+          setProfile(result.profile);
+          setOrganization(result.organization);
+        }
+      }
       setLoading(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
     });
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [setProfile, setOrganization]);
 
-  function sendOtp() {
-    if (phone.replace(/\D/g, '').length < 10) return;
-    setError(null);
-    setStep('otp');
+  function getCredentials() {
+    const digits = phone.replace(/\D/g, '').slice(-10);
+    const pinVal = pin || digits.slice(-4);
+    return {
+      email: `${digits}@nirman.app`,
+      password: `nrm-${pinVal}-${digits}`,
+      digits,
+    };
   }
 
-  async function verifyOtp() {
+  async function handleLogin() {
     setBusy(true);
     setError(null);
+    const { email, password, digits } = getCredentials();
 
-    if (otp !== '0000') {
-      setError('Wrong OTP. Enter 0000');
+    const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (signInErr) {
+      // User doesn't exist — show register step
+      setStep('register');
       setBusy(false);
       return;
     }
 
-    // Use phone as fake email for Supabase session (RLS needs a real user)
-    const digits = phone.replace(/\D/g, '').slice(-10);
-    const fakeEmail = `${digits}@nirman.local`;
-    const password = `nirman-${digits}-0000`;
-
-    // Try sign in first, then sign up if new user
-    const { error: signInErr } = await supabase.auth.signInWithPassword({
-      email: fakeEmail,
-      password,
-    });
-
-    if (signInErr) {
-      const { error: signUpErr } = await supabase.auth.signUp({
-        email: fakeEmail,
-        password,
-      });
-      if (signUpErr) {
-        setError(signUpErr.message);
-        setBusy(false);
-        return;
+    // Load profile
+    const { data: userData } = await supabase.auth.getUser();
+    if (userData.user) {
+      const result = await fetchProfile(userData.user.id);
+      if (result) {
+        setProfile(result.profile);
+        setOrganization(result.organization);
       }
     }
+    setBusy(false);
+  }
 
+  async function handleRegister() {
+    if (!name.trim()) {
+      setError('Enter your name');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const { email, password, digits } = getCredentials();
+
+    const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ email, password });
+    if (signUpErr) {
+      setError(signUpErr.message);
+      setBusy(false);
+      return;
+    }
+
+    if (!signUpData.user) {
+      setError('Signup failed');
+      setBusy(false);
+      return;
+    }
+
+    // Create org + profile
+    const result = await createOrgAndProfile(signUpData.user.id, digits, name.trim());
+    if (!result) {
+      setError('Failed to create account');
+      setBusy(false);
+      return;
+    }
+
+    setProfile(result.profile);
+    setOrganization(result.organization);
     setBusy(false);
   }
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-yellow-300">
-        <p className="text-2xl font-black uppercase">Loading...</p>
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-yellow-50 to-amber-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent" />
+          <p className="text-sm font-semibold text-gray-500">Loading...</p>
+        </div>
       </div>
     );
   }
 
-  if (!session) {
+  if (!session || !profile) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-yellow-300 p-6">
-        <div className="w-full max-w-sm border-4 border-black bg-white p-6 shadow-[8px_8px_0_0_#000]">
-          <h1 className="mb-1 text-3xl font-black uppercase">Nirman</h1>
-          <p className="mb-6 text-sm font-bold">Construction Expense Tracker</p>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-yellow-50 to-amber-50 p-6">
+        <div className="w-full max-w-sm">
+          {/* Logo */}
+          <div className="mb-8 text-center">
+            <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-500 shadow-lg">
+              <span className="text-3xl font-black text-white">N</span>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900">Nirman</h1>
+            <p className="text-sm text-gray-500">Construction Expense Tracker</p>
+          </div>
 
-          {step === 'phone' ? (
-            <>
-              <label className="mb-1 block text-xs font-black uppercase">
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                inputMode="numeric"
-                placeholder="9916516507"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && sendOtp()}
-                className="w-full border-2 border-black px-3 py-3 text-lg font-bold"
-              />
-              <button
-                onClick={sendOtp}
-                disabled={phone.replace(/\D/g, '').length < 10}
-                className="mt-4 w-full border-4 border-black bg-green-400 py-3 text-lg font-black uppercase shadow-[4px_4px_0_0_#000] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-50"
-              >
-                Send OTP
-              </button>
-            </>
-          ) : (
-            <>
-              <label className="mb-1 block text-xs font-black uppercase">
-                Enter 4-digit OTP
-              </label>
-              <input
-                type="tel"
-                inputMode="numeric"
-                maxLength={4}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && otp.length === 4 && verifyOtp()}
-                className="w-full border-2 border-black px-3 py-3 text-2xl font-black tracking-widest"
-              />
-              <button
-                onClick={verifyOtp}
-                disabled={busy || otp.length !== 4}
-                className="mt-4 w-full border-4 border-black bg-green-400 py-3 text-lg font-black uppercase shadow-[4px_4px_0_0_#000] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-50"
-              >
-                {busy ? 'Verifying...' : 'Verify & Enter'}
-              </button>
-              <button
-                onClick={() => { setStep('phone'); setOtp(''); setError(null); }}
-                className="mt-2 w-full text-xs underline"
-              >
-                Change number
-              </button>
-            </>
-          )}
+          <div className={ui.cardLg}>
+            {step === 'login' ? (
+              <>
+                <label className={ui.label}>Phone Number</label>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="Enter 10-digit number"
+                  maxLength={10}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                  className={ui.input}
+                />
 
-          {error && (
-            <p className="mt-3 rounded border-2 border-red-500 bg-red-100 p-2 text-sm text-red-700">
-              {error}
-            </p>
-          )}
+                <label className={`${ui.label} mt-4`}>PIN (4 digits)</label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  placeholder="Default: last 4 digits of phone"
+                  maxLength={4}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                  onKeyDown={(e) => e.key === 'Enter' && phone.length >= 10 && handleLogin()}
+                  className={ui.input}
+                />
+
+                <button
+                  onClick={handleLogin}
+                  disabled={busy || phone.length < 10}
+                  className={`${ui.btnPrimary} mt-5`}
+                >
+                  {busy ? 'Signing in...' : 'Sign In'}
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="mb-4 text-sm text-gray-600">
+                  New account for <span className="font-semibold">{phone}</span>
+                </p>
+
+                <label className={ui.label}>Your Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Ahmed Khan"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleRegister()}
+                  className={ui.input}
+                  autoFocus
+                />
+
+                <button
+                  onClick={handleRegister}
+                  disabled={busy || !name.trim()}
+                  className={`${ui.btnPrimary} mt-5`}
+                >
+                  {busy ? 'Creating...' : 'Create Account'}
+                </button>
+
+                <button
+                  onClick={() => { setStep('login'); setError(null); }}
+                  className="mt-3 w-full text-center text-sm text-gray-500 underline"
+                >
+                  Back to sign in
+                </button>
+              </>
+            )}
+
+            {error && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+          </div>
+
+          <p className="mt-6 text-center text-xs text-gray-400">
+            PIN is your 4-digit secret. Default: last 4 digits of your phone.
+          </p>
         </div>
       </div>
     );

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { Profile, Organization } from '@/types';
 
 export interface CustomCategory {
   key: string;
@@ -9,24 +10,32 @@ export interface CustomCategory {
 }
 
 interface AppState {
+  // Auth / profile
+  profile: Profile | null;
+  organization: Organization | null;
+  setProfile: (p: Profile | null) => void;
+  setOrganization: (o: Organization | null) => void;
+  clearAuth: () => void;
+
+  // Project filter
   activeProjectId: string | null;
   setActiveProject: (id: string | null) => void;
 
   language: 'en' | 'hi' | 'kn';
   setLanguage: (lang: 'en' | 'hi' | 'kn') => void;
 
-  // last-used values for fast re-entry
+  // Last-used values for fast re-entry
   lastPaymentMode: string;
   lastVendorId: string | null;
   setLastPaymentMode: (mode: string) => void;
   setLastVendorId: (id: string | null) => void;
 
-  // custom categories
+  // Custom categories
   customCategories: CustomCategory[];
   addCategory: (cat: CustomCategory) => void;
   removeCategory: (key: string) => void;
 
-  // hidden default categories
+  // Hidden default categories
   hiddenCategories: string[];
   hideCategory: (key: string) => void;
   unhideCategory: (key: string) => void;
@@ -35,6 +44,12 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
+      profile: null,
+      organization: null,
+      setProfile: (p) => set({ profile: p }),
+      setOrganization: (o) => set({ organization: o }),
+      clearAuth: () => set({ profile: null, organization: null }),
+
       activeProjectId: null,
       setActiveProject: (id) => set({ activeProjectId: id }),
 

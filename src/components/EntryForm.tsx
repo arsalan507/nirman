@@ -8,7 +8,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { X, Save } from 'lucide-react';
 import {
-  CATEGORIES,
   PAYMENT_MODES,
   LABOR_TYPES,
   MATERIALS,
@@ -17,6 +16,7 @@ import {
   type CategoryKey,
   type PaymentMode,
 } from '@/lib/constants';
+import * as ui from '@/lib/ui';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/store';
 import VoiceButton from './VoiceButton';
@@ -24,18 +24,12 @@ import type { ParsedVoiceEntry } from '@/lib/voice-parser';
 import type { Project, Entry } from '@/types';
 
 const numericString = (msg = 'Enter a valid number') =>
-  z
-    .string()
-    .optional()
-    .refine((v) => !v || !isNaN(Number(v)), msg);
+  z.string().optional().refine((v) => !v || !isNaN(Number(v)), msg);
 
 const entrySchema = z.object({
   entry_date: z.string().min(1),
   description: z.string().min(1, 'Description required'),
-  amount: z
-    .string()
-    .min(1, 'Amount required')
-    .refine((v) => !isNaN(Number(v)) && Number(v) > 0, 'Amount must be > 0'),
+  amount: z.string().min(1, 'Amount required').refine((v) => !isNaN(Number(v)) && Number(v) > 0, 'Amount must be > 0'),
   project_id: z.string().min(1, 'Pick a project'),
   category: z.string().min(1),
   subcategory: z.string().optional(),
@@ -63,7 +57,7 @@ export default function EntryForm({
   initialData?: Entry;
 }) {
   const qc = useQueryClient();
-  const { activeProjectId, lastPaymentMode, setLastPaymentMode, customCategories, hiddenCategories } = useAppStore();
+  const { activeProjectId, lastPaymentMode, setLastPaymentMode, customCategories, hiddenCategories, organization } = useAppStore();
   const allCategories = getAllCategories(customCategories, hiddenCategories);
 
   const { data: projects = [] } = useQuery({
@@ -77,10 +71,7 @@ export default function EntryForm({
   const isEdit = !!initialData;
 
   const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
+    register, handleSubmit, setValue, watch,
     formState: { errors, isSubmitting },
   } = useForm<EntryFormValues>({
     resolver: zodResolver(entrySchema),
@@ -100,7 +91,6 @@ export default function EntryForm({
     },
   });
 
-  // Set first project as default if none selected
   useEffect(() => {
     if (!watch('project_id') && projects[0]) {
       setValue('project_id', projects[0].id);
@@ -115,14 +105,13 @@ export default function EntryForm({
       const owner_id = userData.user?.id;
       if (!owner_id) throw new Error('Not signed in');
 
-      // Atomic vendor upsert — avoids race condition on duplicate names
       let vendor_id: string | null = null;
-      if (values.vendor_name) {
+      if (values.vendor_name && organization) {
         const { data: vendor, error: vErr } = await supabase
           .from('vendors')
           .upsert(
-            { owner_id, name: values.vendor_name },
-            { onConflict: 'owner_id,name' }
+            { owner_id, organization_id: organization.id, name: values.vendor_name },
+            { onConflict: 'organization_id,name' }
           )
           .select('id')
           .single();
@@ -132,6 +121,7 @@ export default function EntryForm({
 
       const payload = {
         owner_id,
+        organization_id: organization?.id,
         project_id: values.project_id,
         entry_date: values.entry_date,
         description: values.description,
@@ -150,10 +140,7 @@ export default function EntryForm({
       };
 
       if (isEdit) {
-        const { error } = await supabase
-          .from('entries')
-          .update(payload)
-          .eq('id', initialData!.id);
+        const { error } = await supabase.from('entries').update(payload).eq('id', initialData!.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from('entries').insert(payload);
@@ -177,53 +164,41 @@ export default function EntryForm({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-white">
+    <div className="fixed inset-0 z-50 flex flex-col bg-gray-50">
       {/* Header */}
-      <header className="flex items-center justify-between border-b-4 border-black bg-yellow-300 px-4 py-3">
-        <h2 className="text-xl font-black uppercase">
+      <header className="flex items-center justify-between bg-gradient-to-r from-yellow-400 to-amber-500 px-5 py-4">
+        <h2 className="text-lg font-bold text-gray-900">
           {isEdit ? 'Edit Entry' : 'New Entry'}
         </h2>
-        <button
-          onClick={onClose}
-          className="flex h-10 w-10 items-center justify-center border-2 border-black bg-white shadow-[3px_3px_0_0_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
-          aria-label="Close"
-        >
-          <X strokeWidth={3} />
+        <button onClick={onClose} className={ui.btnIcon}>
+          <X className="h-5 w-5" strokeWidth={2.5} />
         </button>
       </header>
 
       <form
         onSubmit={handleSubmit((v) => saveMutation.mutate(v))}
-        className="flex-1 overflow-y-auto px-4 pb-32 pt-6"
+        className="flex-1 overflow-y-auto px-5 pb-32 pt-5"
       >
-        {/* Voice button */}
+        {/* Voice */}
         {!isEdit && (
           <div className="mb-6 flex flex-col items-center gap-2">
             <VoiceButton onResult={onVoiceResult} />
-            <p className="text-center text-xs text-gray-500">
-              Say in Hindi, Kannada, or English
-            </p>
+            <p className="text-xs text-gray-400">Say in Hindi, Kannada, or English</p>
           </div>
         )}
 
         <div className="space-y-5">
           {/* Date */}
           <Field label="Date">
-            <input
-              type="date"
-              {...register('entry_date')}
-              className={inputClass}
-            />
+            <input type="date" {...register('entry_date')} className={ui.input} />
           </Field>
 
           {/* Project */}
           <Field label="Project">
-            <select {...register('project_id')} className={inputClass}>
+            <select {...register('project_id')} className={ui.select}>
               {projects.length === 0 && <option value="">— No projects yet —</option>}
               {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
+                <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
           </Field>
@@ -235,7 +210,7 @@ export default function EntryForm({
               inputMode="decimal"
               placeholder="0"
               {...register('amount')}
-              className={`${inputClass} text-3xl font-black`}
+              className={`${ui.inputLg}`}
             />
           </Field>
 
@@ -245,11 +220,11 @@ export default function EntryForm({
               type="text"
               placeholder="e.g. Cement 10 bags, Mason 4 days"
               {...register('description')}
-              className={inputClass}
+              className={ui.input}
             />
           </Field>
 
-          {/* Category — big tile picker */}
+          {/* Category — tile picker */}
           <Field label="Category">
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(allCategories).map(([key, cat]) => (
@@ -257,83 +232,60 @@ export default function EntryForm({
                   type="button"
                   key={key}
                   onClick={() => setValue('category', key as CategoryKey)}
-                  className={`flex items-center gap-2 border-2 border-black p-3 text-left text-sm font-bold ${
+                  className={`flex items-center gap-2.5 rounded-xl p-3 text-left text-sm font-medium transition-all ${
                     category === key
-                      ? 'bg-yellow-300 shadow-[4px_4px_0_0_#000]'
-                      : 'bg-white'
+                      ? 'bg-yellow-100 ring-2 ring-yellow-400 shadow-sm'
+                      : 'bg-white border border-gray-200'
                   }`}
                 >
-                  <span className="text-xl">{cat.icon}</span>
-                  <span>{cat.label}</span>
+                  <span className="text-lg">{cat.icon}</span>
+                  <span className="text-gray-700">{cat.label}</span>
                 </button>
               ))}
             </div>
           </Field>
 
-          {/* Subcategory — only when relevant */}
+          {/* Labor subcategory */}
           {(category === 'labor_daily' || category === 'labor_contract') && (
             <>
               <Field label="Worker Type">
-                <select {...register('subcategory')} className={inputClass}>
+                <select {...register('subcategory')} className={ui.select}>
                   <option value="">— Select —</option>
                   {LABOR_TYPES.map((l) => (
-                    <option key={l.name} value={l.name}>
-                      {l.name}
-                    </option>
+                    <option key={l.name} value={l.name}>{l.name}</option>
                   ))}
                 </select>
               </Field>
               {category === 'labor_daily' && (
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Workers">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      {...register('worker_count')}
-                      className={inputClass}
-                    />
+                    <input type="text" inputMode="numeric" {...register('worker_count')} className={ui.input} />
                   </Field>
                   <Field label="Rate / day">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      {...register('daily_rate')}
-                      className={inputClass}
-                    />
+                    <input type="text" inputMode="decimal" {...register('daily_rate')} className={ui.input} />
                   </Field>
                 </div>
               )}
             </>
           )}
 
+          {/* Material subcategory */}
           {category === 'material' && (
             <>
               <Field label="Material Item">
-                <select {...register('subcategory')} className={inputClass}>
+                <select {...register('subcategory')} className={ui.select}>
                   <option value="">— Select —</option>
                   {MATERIALS.map((m) => (
-                    <option key={m.name} value={m.name}>
-                      {m.name}
-                    </option>
+                    <option key={m.name} value={m.name}>{m.name}</option>
                   ))}
                 </select>
               </Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Quantity">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    {...register('quantity')}
-                    className={inputClass}
-                  />
+                  <input type="text" inputMode="decimal" {...register('quantity')} className={ui.input} />
                 </Field>
                 <Field label="Unit">
-                  <input
-                    type="text"
-                    placeholder="bag / kg / sqft"
-                    {...register('unit')}
-                    className={inputClass}
-                  />
+                  <input type="text" placeholder="bag / kg / sqft" {...register('unit')} className={ui.input} />
                 </Field>
               </div>
             </>
@@ -341,86 +293,69 @@ export default function EntryForm({
 
           {/* Vendor */}
           <Field label="Vendor / Person (optional)">
-            <input
-              type="text"
-              placeholder="e.g. Ramesh Cement Stores"
-              {...register('vendor_name')}
-              className={inputClass}
-            />
+            <input type="text" placeholder="e.g. Ramesh Cement Stores" {...register('vendor_name')} className={ui.input} />
           </Field>
 
-          {/* Payment mode — big buttons */}
+          {/* Payment mode */}
           <Field label="Payment Mode">
             <div className="grid grid-cols-3 gap-2">
               {Object.entries(PAYMENT_MODES).map(([key, m]) => (
                 <button
                   type="button"
                   key={key}
-                  onClick={() =>
-                    setValue('payment_mode', key, { shouldDirty: true })
-                  }
-                  className={`flex flex-col items-center gap-1 border-2 border-black p-3 text-xs font-bold ${
+                  onClick={() => setValue('payment_mode', key, { shouldDirty: true })}
+                  className={`flex flex-col items-center gap-1 rounded-xl p-3 text-xs font-medium transition-all ${
                     watch('payment_mode') === key
-                      ? 'bg-mint-400 bg-green-300 shadow-[4px_4px_0_0_#000]'
-                      : 'bg-white'
+                      ? 'bg-green-100 ring-2 ring-green-400 shadow-sm'
+                      : 'bg-white border border-gray-200'
                   }`}
                 >
-                  <span className="text-2xl">{m.icon}</span>
-                  <span>{m.label}</span>
+                  <span className="text-xl">{m.icon}</span>
+                  <span className="text-gray-600">{m.label}</span>
                 </button>
               ))}
             </div>
           </Field>
 
           {/* Credit toggle */}
-          <label className="flex items-center gap-3 border-2 border-black bg-white p-3">
-            <input
-              type="checkbox"
-              {...register('is_credit')}
-              className="h-6 w-6 accent-black"
-            />
-            <span className="text-sm font-bold">
-              ⏳ This amount is owed (vendor will be paid later)
+          <label className="flex items-center gap-3 rounded-xl bg-white p-4 border border-gray-200">
+            <input type="checkbox" {...register('is_credit')} className="h-5 w-5 accent-yellow-500 rounded" />
+            <span className="text-sm font-medium text-gray-700">
+              ⏳ This amount is owed (pay later)
             </span>
           </label>
 
-          {/* Optional bill no + notes */}
+          {/* Bill + Notes */}
           <Field label="Bill Number (optional)">
-            <input
-              type="text"
-              {...register('bill_number')}
-              className={inputClass}
-            />
+            <input type="text" {...register('bill_number')} className={ui.input} />
           </Field>
-
           <Field label="Notes (optional)">
-            <textarea {...register('notes')} rows={2} className={inputClass} />
+            <textarea {...register('notes')} rows={2} className={ui.input} />
           </Field>
 
+          {/* Total preview */}
           {Number(watch('amount')) > 0 && (
-            <div className="rounded-none border-4 border-black bg-yellow-100 p-4 text-center">
-              <p className="text-sm font-bold uppercase">Total</p>
-              <p className="text-4xl font-black">
-                {formatINR(Number(watch('amount')))}
-              </p>
+            <div className={`${ui.cardAccent} text-center`}>
+              <p className="text-xs font-semibold uppercase text-gray-500">Total</p>
+              <p className="text-3xl font-bold text-gray-900">{formatINR(Number(watch('amount')))}</p>
             </div>
           )}
         </div>
 
         {saveMutation.isError && (
-          <p className="mt-3 text-center text-red-600">
+          <p className="mt-3 text-center text-sm text-red-600">
             {String((saveMutation.error as Error)?.message ?? 'Save failed')}
           </p>
         )}
 
-        {/* Sticky save bar */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t-4 border-black bg-white p-3">
+        {/* Sticky save */}
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur-sm">
           <button
             type="submit"
             disabled={isSubmitting || saveMutation.isPending}
-            className="w-full border-4 border-black bg-green-400 py-4 text-xl font-black uppercase shadow-[6px_6px_0_0_#000] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-50"
+            className={ui.btnPrimary}
           >
-            <Save className="mr-2 inline h-6 w-6" />
+            <Save className="mr-2 inline h-5 w-5" />
             {isEdit ? 'Update' : 'Save Entry'}
           </button>
         </div>
@@ -429,11 +364,8 @@ export default function EntryForm({
   );
 }
 
-const inputClass =
-  'w-full border-2 border-black bg-white px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-yellow-300';
-
 function Field({
-  label,
+  label: labelText,
   children,
   error,
 }: {
@@ -443,11 +375,9 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-1 block text-xs font-black uppercase tracking-wide">
-        {label}
-      </label>
+      <label className={ui.label}>{labelText}</label>
       {children}
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
   );
 }

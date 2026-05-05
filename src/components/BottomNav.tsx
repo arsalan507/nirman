@@ -2,8 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BarChart3, FileText, Users, Settings } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Home, BarChart3, Users, FileText, Settings, Plus } from 'lucide-react';
 
 const tabs = [
   { href: '/', label: 'Home', icon: Home },
@@ -17,8 +16,8 @@ export default function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t-4 border-black bg-white">
-      <div className="mx-auto flex max-w-md items-stretch justify-around">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 pb-safe backdrop-blur-md">
+      <div className="mx-auto flex max-w-md items-end justify-around px-2 pt-1">
         {tabs.map((tab) => {
           const active = pathname === tab.href;
           const Icon = tab.icon;
@@ -26,13 +25,15 @@ export default function BottomNav() {
             <Link
               key={tab.href}
               href={tab.href}
-              className={cn(
-                'flex flex-1 flex-col items-center justify-center py-3 text-xs font-bold uppercase transition-colors',
-                active ? 'bg-yellow-300 text-black' : 'text-gray-500 hover:text-black'
-              )}
+              className={`flex flex-1 flex-col items-center justify-center py-2 text-[10px] font-semibold transition-colors ${
+                active ? 'text-yellow-600' : 'text-gray-400'
+              }`}
             >
-              <Icon className="h-6 w-6" strokeWidth={2.5} />
-              <span className="mt-1">{tab.label}</span>
+              <Icon className="h-5 w-5" strokeWidth={active ? 2.5 : 2} />
+              <span className="mt-0.5">{tab.label}</span>
+              {active && (
+                <div className="mt-0.5 h-1 w-5 rounded-full bg-yellow-400" />
+              )}
             </Link>
           );
         })}

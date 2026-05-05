@@ -1,5 +1,21 @@
 import type { CategoryKey, PaymentMode } from '@/lib/constants';
 
+export interface Organization {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface Profile {
+  id: string;
+  user_id: string;
+  name: string;
+  phone: string;
+  role: 'admin' | 'team';
+  organization_id: string;
+  created_at: string;
+}
+
 export interface Project {
   id: string;
   owner_id: string;
