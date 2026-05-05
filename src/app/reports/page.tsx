@@ -8,7 +8,7 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-f
 import { Share2, Download } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/store';
-import { CATEGORIES, formatINR } from '@/lib/constants';
+import { formatINR, getAllCategories } from '@/lib/constants';
 import { formatSummary, shareToWhatsApp } from '@/lib/whatsapp';
 import type { Entry, Project } from '@/types';
 
@@ -16,7 +16,8 @@ type Range = 'today' | 'week' | 'month' | 'all';
 
 export default function ReportsPage() {
   const [range, setRange] = useState<Range>('today');
-  const { activeProjectId } = useAppStore();
+  const { activeProjectId, customCategories, hiddenCategories } = useAppStore();
+  const allCategories = getAllCategories(customCategories, hiddenCategories);
 
   const { from, to, label } = (() => {
     const now = new Date();
@@ -81,7 +82,7 @@ export default function ReportsPage() {
     const rows = entries.map((e) => [
       e.entry_date,
       e.description,
-      CATEGORIES[e.category].label,
+      (allCategories[e.category] ?? { label: e.category }).label,
       e.amount,
       e.payment_mode,
       e.is_credit ? 'Yes' : 'No',
@@ -147,7 +148,7 @@ export default function ReportsPage() {
         {/* Entry list */}
         <div className="space-y-2">
           {entries.map((e) => {
-            const cat = CATEGORIES[e.category];
+            const cat = allCategories[e.category] ?? { label: e.category, icon: '📌', color: '#B0B0B0' };
             return (
               <div key={e.id} className="flex items-center gap-3 border-2 border-black p-3">
                 <span className="text-2xl">{cat.icon}</span>

@@ -10,8 +10,8 @@ import { useAppStore } from '@/store';
 import type { Entry, Project } from '@/types';
 
 export default function DashboardPage() {
-  const { activeProjectId, setActiveProject, customCategories } = useAppStore();
-  const allCategories = getAllCategories(customCategories);
+  const { activeProjectId, setActiveProject, customCategories, hiddenCategories } = useAppStore();
+  const allCategories = getAllCategories(customCategories, hiddenCategories);
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
@@ -24,7 +24,7 @@ export default function DashboardPage() {
   const { data: entries = [] } = useQuery({
     queryKey: ['dashboard-entries', activeProjectId],
     queryFn: async () => {
-      let q = supabase.from('entries').select('*');
+      let q = supabase.from('entries').select('*').limit(500);
       if (activeProjectId) q = q.eq('project_id', activeProjectId);
       const { data } = await q;
       return (data ?? []) as Entry[];

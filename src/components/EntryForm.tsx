@@ -63,8 +63,8 @@ export default function EntryForm({
   initialData?: Entry;
 }) {
   const qc = useQueryClient();
-  const { activeProjectId, lastPaymentMode, setLastPaymentMode, customCategories } = useAppStore();
-  const allCategories = getAllCategories(customCategories);
+  const { activeProjectId, lastPaymentMode, setLastPaymentMode, customCategories, hiddenCategories } = useAppStore();
+  const allCategories = getAllCategories(customCategories, hiddenCategories);
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
@@ -115,26 +115,19 @@ export default function EntryForm({
       const owner_id = userData.user?.id;
       if (!owner_id) throw new Error('Not signed in');
 
-      // Upsert vendor if name provided
+      // Atomic vendor upsert — avoids race condition on duplicate names
       let vendor_id: string | null = null;
       if (values.vendor_name) {
-        const { data: existing } = await supabase
+        const { data: vendor, error: vErr } = await supabase
           .from('vendors')
+          .upsert(
+            { owner_id, name: values.vendor_name },
+            { onConflict: 'owner_id,name' }
+          )
           .select('id')
-          .eq('owner_id', owner_id)
-          .eq('name', values.vendor_name)
-          .maybeSingle();
-        if (existing) {
-          vendor_id = existing.id;
-        } else {
-          const { data: created, error: vErr } = await supabase
-            .from('vendors')
-            .insert({ owner_id, name: values.vendor_name })
-            .select('id')
-            .single();
-          if (vErr) throw vErr;
-          vendor_id = created.id;
-        }
+          .single();
+        if (vErr) throw vErr;
+        vendor_id = vendor.id;
       }
 
       const payload = {

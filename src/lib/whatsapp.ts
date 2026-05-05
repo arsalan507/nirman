@@ -4,13 +4,16 @@
  */
 import { format } from 'date-fns';
 import type { Entry, Project } from '@/types';
-import { CATEGORIES, formatINR, PAYMENT_MODES } from '@/lib/constants';
+import { CATEGORIES, formatINR, PAYMENT_MODES, type CategoryInfo } from '@/lib/constants';
 
 /**
  * Format a single entry as a WhatsApp-shareable invoice line.
  */
+const fallbackCat: CategoryInfo = { label: 'Other', icon: '📌', color: '#B0B0B0' };
+const getCat = (key: string) => (CATEGORIES as Record<string, CategoryInfo>)[key] ?? fallbackCat;
+
 export function formatEntryAsInvoice(entry: Entry, project?: Project): string {
-  const cat = CATEGORIES[entry.category];
+  const cat = getCat(entry.category);
   const pay = PAYMENT_MODES[entry.payment_mode];
   const lines: string[] = [
     `*${project?.name ?? 'Construction'} — Entry*`,
@@ -53,7 +56,7 @@ export function formatSummary(
   ];
 
   for (const e of entries.slice(0, 30)) {
-    const cat = CATEGORIES[e.category];
+    const cat = getCat(e.category);
     lines.push(`${cat.icon} ${e.description} — ${formatINR(Number(e.amount))}`);
   }
 
@@ -62,7 +65,7 @@ export function formatSummary(
   lines.push('');
   lines.push('*By Category:*');
   for (const [catKey, sum] of Object.entries(byCategory)) {
-    const cat = CATEGORIES[catKey as keyof typeof CATEGORIES];
+    const cat = getCat(catKey);
     lines.push(`${cat.icon} ${cat.label}: ${formatINR(sum)}`);
   }
 

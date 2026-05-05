@@ -16,8 +16,8 @@ import type { Entry, Project } from '@/types';
 export default function HomePage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Entry | null>(null);
-  const { activeProjectId, customCategories } = useAppStore();
-  const allCategories = getAllCategories(customCategories);
+  const { activeProjectId, customCategories, hiddenCategories } = useAppStore();
+  const allCategories = getAllCategories(customCategories, hiddenCategories);
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],

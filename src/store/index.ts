@@ -25,6 +25,11 @@ interface AppState {
   customCategories: CustomCategory[];
   addCategory: (cat: CustomCategory) => void;
   removeCategory: (key: string) => void;
+
+  // hidden default categories
+  hiddenCategories: string[];
+  hideCategory: (key: string) => void;
+  unhideCategory: (key: string) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -47,6 +52,14 @@ export const useAppStore = create<AppState>()(
       removeCategory: (key) =>
         set((s) => ({
           customCategories: s.customCategories.filter((c) => c.key !== key),
+        })),
+
+      hiddenCategories: [],
+      hideCategory: (key) =>
+        set((s) => ({ hiddenCategories: [...s.hiddenCategories, key] })),
+      unhideCategory: (key) =>
+        set((s) => ({
+          hiddenCategories: s.hiddenCategories.filter((k) => k !== key),
         })),
     }),
     { name: 'nirman-app' }

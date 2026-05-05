@@ -24,11 +24,15 @@ export type CategoryInfo = { label: string; icon: string; color: string };
  * Merge default categories with custom ones from the store.
  */
 export function getAllCategories(
-  custom: { key: string; label: string; icon: string; color: string }[]
+  custom: { key: string; label: string; icon: string; color: string }[],
+  hidden: string[] = []
 ): Record<string, CategoryInfo> {
   const merged: Record<string, CategoryInfo> = { ...CATEGORIES };
   for (const c of custom) {
     merged[c.key] = { label: c.label, icon: c.icon, color: c.color };
+  }
+  for (const key of hidden) {
+    delete merged[key];
   }
   return merged;
 }
