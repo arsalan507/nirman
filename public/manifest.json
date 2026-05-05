@@ -1,0 +1,19 @@
+{
+  "name": "Nirman — Construction Tracker",
+  "short_name": "Nirman",
+  "description": "Track construction expenses with one-tap entries. Built for Bengaluru builders.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#FFD93D",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "finance", "productivity"]
+}
