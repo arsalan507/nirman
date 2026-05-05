@@ -12,15 +12,24 @@ import { formatINR, getAllCategories } from '@/lib/constants';
 import { formatSummary, shareToWhatsApp } from '@/lib/whatsapp';
 import type { Entry, Project } from '@/types';
 
-type Range = 'today' | 'week' | 'month' | 'all';
+type Range = 'today' | 'week' | 'month' | 'all' | 'custom';
 
 export default function ReportsPage() {
   const [range, setRange] = useState<Range>('today');
+  const [customFrom, setCustomFrom] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [customTo, setCustomTo] = useState(format(new Date(), 'yyyy-MM-dd'));
   const { activeProjectId, customCategories, hiddenCategories } = useAppStore();
   const allCategories = getAllCategories(customCategories, hiddenCategories);
 
   const { from, to, label } = (() => {
     const now = new Date();
+    if (range === 'custom') {
+      return {
+        from: customFrom,
+        to: customTo,
+        label: `${format(new Date(customFrom), 'dd MMM')} — ${format(new Date(customTo), 'dd MMM yyyy')}`,
+      };
+    }
     if (range === 'today') {
       const d = format(now, 'yyyy-MM-dd');
       return { from: d, to: d, label: `Today — ${format(now, 'dd MMM yyyy')}` };
@@ -107,12 +116,12 @@ export default function ReportsPage() {
 
       <div className="p-4">
         {/* Range tabs */}
-        <div className="mb-4 grid grid-cols-4 gap-1">
-          {(['today', 'week', 'month', 'all'] as Range[]).map((r) => (
+        <div className="mb-3 grid grid-cols-5 gap-1">
+          {(['today', 'week', 'month', 'all', 'custom'] as Range[]).map((r) => (
             <button
               key={r}
               onClick={() => setRange(r)}
-              className={`border-2 border-black py-2 text-xs font-black uppercase ${
+              className={`border-2 border-black py-2 text-[10px] font-black uppercase ${
                 range === r ? 'bg-yellow-300 shadow-[3px_3px_0_0_#000]' : 'bg-white'
               }`}
             >
@@ -120,6 +129,30 @@ export default function ReportsPage() {
             </button>
           ))}
         </div>
+
+        {/* Custom date pickers */}
+        {range === 'custom' && (
+          <div className="mb-4 grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-[10px] font-black uppercase">From</label>
+              <input
+                type="date"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="w-full border-2 border-black px-2 py-2 text-sm font-bold"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[10px] font-black uppercase">To</label>
+              <input
+                type="date"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="w-full border-2 border-black px-2 py-2 text-sm font-bold"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Total */}
         <div className="mb-4 border-4 border-black bg-yellow-100 p-4 shadow-[4px_4px_0_0_#000]">

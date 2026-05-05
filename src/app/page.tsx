@@ -3,19 +3,22 @@
 export const dynamic = 'force-dynamic';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
-import { Plus, Pencil, Share2 } from 'lucide-react';
+import { Plus, Pencil, Share2, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { CATEGORIES, formatINR, getAllCategories } from '@/lib/constants';
+import { formatINR, getAllCategories } from '@/lib/constants';
 import EntryForm from '@/components/EntryForm';
+import SlideToDelete from '@/components/SlideToDelete';
 import { useAppStore } from '@/store';
 import { formatEntryAsInvoice, shareToWhatsApp } from '@/lib/whatsapp';
 import type { Entry, Project } from '@/types';
 
 export default function HomePage() {
+  const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Entry | null>(null);
+  const [deleting, setDeleting] = useState<Entry | null>(null);
   const { activeProjectId, customCategories, hiddenCategories } = useAppStore();
   const allCategories = getAllCategories(customCategories, hiddenCategories);
 
@@ -27,10 +30,8 @@ export default function HomePage() {
     },
   });
 
-  const projectIdFilter = activeProjectId;
-
   const { data: entries = [], isLoading } = useQuery({
-    queryKey: ['entries', projectIdFilter],
+    queryKey: ['entries', activeProjectId],
     queryFn: async () => {
       let q = supabase
         .from('entries')
@@ -38,9 +39,21 @@ export default function HomePage() {
         .order('entry_date', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(50);
-      if (projectIdFilter) q = q.eq('project_id', projectIdFilter);
+      if (activeProjectId) q = q.eq('project_id', activeProjectId);
       const { data } = await q;
       return (data ?? []) as Entry[];
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('entries').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['entries'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      setDeleting(null);
     },
   });
 
@@ -106,7 +119,7 @@ export default function HomePage() {
                       shareToWhatsApp(msg);
                     }}
                     className="flex h-7 w-7 items-center justify-center border border-black bg-green-300 active:translate-x-px active:translate-y-px"
-                    aria-label="Share to WhatsApp"
+                    aria-label="Share"
                   >
                     <Share2 className="h-3.5 w-3.5" strokeWidth={3} />
                   </button>
@@ -116,6 +129,13 @@ export default function HomePage() {
                     aria-label="Edit"
                   >
                     <Pencil className="h-3.5 w-3.5" strokeWidth={3} />
+                  </button>
+                  <button
+                    onClick={() => setDeleting(e)}
+                    className="flex h-7 w-7 items-center justify-center border border-black bg-red-300 active:translate-x-px active:translate-y-px"
+                    aria-label="Delete"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" strokeWidth={3} />
                   </button>
                 </div>
               </div>
@@ -139,6 +159,14 @@ export default function HomePage() {
             setEditing(null);
           }}
           initialData={editing ?? undefined}
+        />
+      )}
+
+      {deleting && (
+        <SlideToDelete
+          label={`Delete "${deleting.description}"?`}
+          onConfirm={() => deleteMutation.mutate(deleting.id)}
+          onCancel={() => setDeleting(null)}
         />
       )}
     </main>
