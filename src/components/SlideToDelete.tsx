@@ -55,9 +55,9 @@ export default function SlideToDelete({
   }, [dragging, offsetX, onConfirm]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50" onClick={onCancel}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={onCancel}>
       <div
-        className="w-full max-w-md animate-[slideUp_0.2s_ease] p-4 pb-8"
+        className="w-full max-w-sm animate-[slideUp_0.2s_ease] px-6"
         onClick={(e) => e.stopPropagation()}
       >
         <p className="mb-3 text-center text-sm font-bold text-white">Are you sure?</p>
@@ -78,12 +78,14 @@ export default function SlideToDelete({
 
           {/* Handle */}
           <div
-            className={`absolute top-1 flex items-center justify-center rounded-full border-2 border-black bg-white shadow-lg select-none ${
+            className={`absolute flex items-center justify-center rounded-full border-2 border-black bg-white shadow-lg select-none ${
               confirmed ? 'bg-red-500' : ''
             }`}
             style={{
               width: HANDLE_SIZE - 8,
               height: HANDLE_SIZE - 8,
+              top: '50%',
+              transform: 'translateY(-50%)',
               left: offsetX + 4,
               transition: dragging ? 'none' : 'left 0.3s ease',
               cursor: 'grab',
