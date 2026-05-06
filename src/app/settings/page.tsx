@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, LogOut, Trash2, Check, Users, UserPlus } from 'lucide-react';
+import { Plus, LogOut, Trash2, Check, Users, UserPlus, Pencil } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/store';
 import { formatINR, CATEGORIES, getAllCategories } from '@/lib/constants';
@@ -28,6 +28,9 @@ export default function SettingsPage() {
   const [catIcon, setCatIcon] = useState('🔧');
   const [catColor, setCatColor] = useState('#FFD93D');
   const [deletingProject, setDeletingProject] = useState<Project | null>(null);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editBudget, setEditBudget] = useState('');
   const [showInvite, setShowInvite] = useState(false);
   const [invPhone, setInvPhone] = useState('');
   const [invName, setInvName] = useState('');
@@ -78,6 +81,14 @@ export default function SettingsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
   });
 
+  const updateProject = useMutation({
+    mutationFn: async ({ id, name: n, budget: b }: { id: string; name: string; budget: number }) => {
+      const { error } = await supabase.from('projects').update({ name: n, budget: b }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); setEditingProject(null); },
+  });
+
   async function handleInvite() {
     if (!invPhone || !invName || !organization) return;
     setInvBusy(true);
@@ -126,9 +137,17 @@ export default function SettingsPage() {
                   <p className="text-xs text-gray-400">Budget: {formatINR(Number(p.budget))}</p>
                 </button>
                 <RoleGate role="admin">
-                  <button onClick={() => setDeletingProject(p)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-500 active:scale-95">
-                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2.5} />
-                  </button>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => { setEditingProject(p); setEditName(p.name); setEditBudget(String(p.budget ?? 0)); }}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600 active:scale-95"
+                    >
+                      <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    </button>
+                    <button onClick={() => setDeletingProject(p)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-500 active:scale-95">
+                      <Trash2 className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    </button>
+                  </div>
                 </RoleGate>
               </div>
             ))}
@@ -286,6 +305,29 @@ export default function SettingsPage() {
               <button onClick={() => { setShowInvite(false); setInvError(null); }} className={ui.btnSecondary}>Cancel</button>
               <button onClick={handleInvite} disabled={invBusy || !invName || invPhone.length < 10} className={ui.btnPrimary}>
                 {invBusy ? 'Inviting...' : 'Invite'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit project modal */}
+      {editingProject && (
+        <div className={ui.modalOverlay}>
+          <div className={ui.modalCard}>
+            <h3 className="mb-4 text-lg font-bold text-gray-900">Edit Project</h3>
+            <label className={ui.label}>Project Name</label>
+            <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className={`${ui.input} mb-3`} />
+            <label className={ui.label}>Budget ₹</label>
+            <input type="text" inputMode="decimal" value={editBudget} onChange={(e) => setEditBudget(e.target.value)} className={`${ui.input} mb-4`} />
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => setEditingProject(null)} className={ui.btnSecondary}>Cancel</button>
+              <button
+                onClick={() => updateProject.mutate({ id: editingProject.id, name: editName, budget: Number(editBudget) || 0 })}
+                disabled={!editName || updateProject.isPending}
+                className={ui.btnPrimary}
+              >
+                {updateProject.isPending ? 'Saving...' : 'Update'}
               </button>
             </div>
           </div>
