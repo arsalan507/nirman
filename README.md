@@ -1,64 +1,98 @@
-# Nirman — Construction Expense Tracker
+# Nirman - Construction Expense Tracker
 
-Mobile-first PWA for Bengaluru builders. Single-form data entry, voice input (Hindi/Kannada/English), WhatsApp share, live dashboards. Built for Arsalan's father.
+Mobile-first PWA for Indian construction sites. Voice input in Hindi, Kannada, and English. Track every rupee, every vendor, every site.
+
+**Live:** [nirman-drab.vercel.app](https://nirman-drab.vercel.app)
+
+## Why
+
+Residential construction in India runs on cash, WhatsApp, and memory. Nirman replaces all three with a single app that a non-tech person can use at a dusty construction site with patchy internet.
+
+Built for my father and brother managing two sites in Bengaluru.
 
 ## Features
 
-- 🎤 **Voice input** — Hindi/Kannada/English code-mixed via Sarvam.ai
-- 📝 **Single source of truth** — one form auto-populates Labor, Materials, Vendors, Approvals, Misc
-- 📊 **Live dashboard** — KPIs, budget vs actual, category split, payment mode breakdown
-- 📱 **WhatsApp share** — daily/weekly/per-entry invoice format, one-tap
-- ✏️ **Edit anytime** — tap any past entry
-- 📦 **PWA + offline** — works on patchy site internet
-- 🇮🇳 **Bengaluru-specific** — labor types, materials, BBMP/BDA/BESCOM/BWSSB approvals
+- **Voice input** - Say "do hazaar cement Ramesh ko" and it auto-fills amount, category, vendor
+- **3 languages** - Hindi, Kannada, English (code-mixed) via [Sarvam.ai](https://sarvam.ai)
+- **Vendor ledger** - Outstanding dues per vendor, calculated in real-time
+- **Multi-site** - Track multiple projects with separate budgets
+- **Team access** - Admin + team roles with organization-based isolation
+- **WhatsApp share** - Formatted invoices and reports, one tap
+- **Dashboard** - Budget vs actual, category breakdown, payment mode split
+- **Custom categories** - Add/hide categories for your workflow
+- **Slide-to-delete** - No accidental deletions
+- **PWA** - Install from browser, works offline, no app store
 
-## Tech
+## Tech Stack
 
-- Next.js 16 (App Router) + TypeScript + Tailwind v4
-- Supabase (Postgres + Phone OTP Auth + Storage)
-- next-pwa, @tanstack/react-query
-- react-hook-form + zod
-- recharts
-- Sarvam.ai for voice
+| Layer | Tech |
+|-------|------|
+| Framework | Next.js 16 (App Router, Turbopack) |
+| Language | TypeScript |
+| Database | Supabase (Postgres + RLS + Auth) |
+| Voice AI | Sarvam.ai (saarika:v2.5) |
+| State | Zustand (persisted) |
+| Forms | react-hook-form + Zod |
+| Charts | Recharts |
+| Styling | Tailwind CSS v4 |
+| Deploy | Vercel |
 
-## Setup
+## Quick Start
 
-### 1. Supabase
-1. Create project at https://supabase.com/dashboard (Mumbai region)
-2. Open SQL Editor → paste & run `supabase/schema.sql`
-3. **Auth → Providers** → enable Phone (use MSG91 or Twilio for India SMS)
-4. **Storage** → create bucket `receipts` (private)
-5. Copy Project URL + anon key from Settings → API
-
-### 2. Sarvam.ai
-1. Sign up at https://platform.sarvam.ai/
-2. Generate API key (free tier OK)
-
-### 3. Local dev
 ```bash
+git clone https://github.com/arsalan507/nirman.git
+cd nirman
+npm install
 cp .env.example .env.local
-# fill NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SARVAM_API_KEY
+# Fill: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SARVAM_API_KEY
 npm run dev
 ```
 
-### 4. Deploy to Vercel
-```bash
-gh repo create nirman --private --source=. --push
-# On Vercel: import repo → set env vars → deploy
-```
+### Supabase Setup
+
+1. Create project at [supabase.com](https://supabase.com) (Mumbai region)
+2. Run `supabase/schema.sql` in SQL Editor
+3. Run `supabase/migration-001-fixes.sql`
+4. Run `supabase/migration-002-multi-tenancy.sql`
+5. Run `supabase/migration-003-fix-rls.sql`
+6. Auth -> Providers -> Email -> Turn OFF "Confirm email"
+7. Copy Project URL + anon key to `.env.local`
+
+### Sarvam.ai (Voice)
+
+1. Sign up at [platform.sarvam.ai](https://platform.sarvam.ai)
+2. Generate API key (free tier works)
+3. Add to `.env.local` as `SARVAM_API_KEY`
 
 ## Architecture
 
-`entries` is the **single source of truth**. Every dashboard, report, and category breakdown derives from it via filters. Father fills ONE form (or speaks to it); everything else updates live.
+```
+entries (single source of truth)
+  |
+  +-- projects (multi-site budgets)
+  +-- vendors (auto-deduplicated, dues tracking)
+  +-- organizations (multi-tenant isolation)
+  +-- profiles (admin/team roles)
+```
 
-### Schema highlights
-- `projects` — multi-site tracking with budgets
-- `entries` — date, description, amount, category, optional labor/material/vendor fields
-- `vendors` — auto-deduplicated from entry's vendor name field
-- `vendor_dues` view — auto-calculated outstanding balance per vendor
+Row Level Security ensures each organization only sees their own data. No API middleware — the database enforces isolation.
 
-See `supabase/schema.sql` for full schema with RLS policies.
+## Bengaluru-Specific
 
-## Brand voice
+- Labor types: Mason, Helper, Carpenter, Electrician, Plumber, Painter, Tile Layer, Bar Bender, Welder
+- Materials: OPC/PPC Cement, TMT Steel, M-Sand, River Sand, Aggregate, Bricks, Blocks, Tiles
+- Approvals: BBMP Plan Sanction, BDA, BESCOM, BWSSB, Khata Transfer, OC
+- Payment modes: Cash, UPI, Bank Transfer, Cheque, Credit
 
-Neo-brutalist: 4px black borders, hard offset shadows (`8px_8px_0_0_#000`), no gradients, no rounding. Brand colors: yellow `#FFD93D`, mint `#7FFF9F`, pink `#FF69B4`. Big touch targets, bold typography.
+## Other Projects
+
+- [KineticXHub](https://kineticxhub.com) - Performance marketing for local businesses
+- [WhatsApp Outreach](https://github.com/arsalan507/kxh-outreach) - B2B outreach automation
+
+## License
+
+MIT
+
+---
+
+Built by [Arsalan Ahmed](https://github.com/arsalan507) at [KineticXHub](https://kineticxhub.com)
