@@ -9,7 +9,8 @@ import { format } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { CATEGORIES, formatINR, PAYMENT_MODES, getAllCategories } from '@/lib/constants';
+import { formatINR, PAYMENT_MODES, getAllCategories } from '@/lib/constants';
+import * as ui from '@/lib/ui';
 import { useAppStore } from '@/store';
 import type { Entry, Project } from '@/types';
 
@@ -45,7 +46,6 @@ export default function DashboardPage() {
   const totalBudget = activeProject?.budget ?? projects.reduce((s, p) => s + Number(p.budget), 0);
   const pctSpent = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
 
-  // Category breakdown
   const byCategory = entries.reduce<Record<string, number>>((acc, e) => {
     acc[e.category] = (acc[e.category] ?? 0) + Number(e.amount);
     return acc;
@@ -55,7 +55,6 @@ export default function DashboardPage() {
     return { name: cat.label, value, color: cat.color, icon: cat.icon };
   }).sort((a, b) => b.value - a.value);
 
-  // Payment mode breakdown
   const byPayment = entries.reduce<Record<string, number>>((acc, e) => {
     acc[e.payment_mode] = (acc[e.payment_mode] ?? 0) + Number(e.amount);
     return acc;
@@ -66,17 +65,17 @@ export default function DashboardPage() {
   }));
 
   const status = pctSpent >= 100 ? 'over' : pctSpent >= 80 ? 'near' : 'ontrack';
-  const statusColor = status === 'over' ? 'bg-red-300' : status === 'near' ? 'bg-orange-300' : 'bg-green-300';
-  const statusLabel = status === 'over' ? '🔴 Over Budget' : status === 'near' ? '🟡 Near Limit' : '🟢 On Track';
+  const statusBg = status === 'over' ? 'from-red-400 to-red-500' : status === 'near' ? 'from-orange-400 to-orange-500' : 'from-green-400 to-green-500';
+  const statusLabel = status === 'over' ? 'Over Budget' : status === 'near' ? 'Near Limit' : 'On Track';
 
   return (
-    <main className="min-h-screen bg-white pb-32">
-      <header className="border-b-4 border-black bg-yellow-300 px-4 py-6">
-        <h1 className="text-3xl font-black uppercase">Dashboard</h1>
+    <main className="min-h-screen">
+      <header className={ui.headerGradient}>
+        <h1 className={ui.headerTitle}>Dashboard</h1>
         <select
           value={activeProjectId ?? ''}
           onChange={(e) => setActiveProject(e.target.value || null)}
-          className="mt-2 w-full border-2 border-black bg-white px-3 py-2 text-sm font-bold"
+          className={`${ui.select} mt-2 bg-white/80`}
         >
           <option value="">All Projects</option>
           {projects.map((p) => (
@@ -88,92 +87,84 @@ export default function DashboardPage() {
       <div className="space-y-4 p-4">
         {/* KPIs */}
         <div className="grid grid-cols-2 gap-3">
-          <KpiCard label="Total Spent" value={formatINR(totalSpent)} />
-          <KpiCard
-            label="Entries"
-            value={entries.length.toString()}
-            onClick={() => router.push('/')}
-          />
-          <KpiCard
-            label="Outstanding Credit"
-            value={formatINR(totalCredit)}
-            accent="bg-orange-200"
+          <div className={ui.kpiCard}>
+            <p className={ui.kpiLabel}>Total Spent</p>
+            <p className={ui.kpiValue}>{formatINR(totalSpent)}</p>
+          </div>
+          <button onClick={() => router.push('/')} className={`${ui.kpiCard} text-left active:scale-[0.97] transition-transform`}>
+            <p className={ui.kpiLabel}>Entries</p>
+            <p className={ui.kpiValue}>{entries.length}</p>
+            <p className="text-[10px] text-gray-400 mt-1">Tap to view</p>
+          </button>
+          <button
             onClick={() => creditEntries.length > 0 && setShowCredits(true)}
-          />
-          <KpiCard label="Budget" value={formatINR(totalBudget)} />
+            className={`rounded-xl shadow-sm border border-orange-200 bg-orange-50 p-4 text-left active:scale-[0.97] transition-transform`}
+          >
+            <p className={ui.kpiLabel}>Outstanding</p>
+            <p className="text-xl font-bold text-orange-600 mt-0.5">{formatINR(totalCredit)}</p>
+            {creditEntries.length > 0 && <p className="text-[10px] text-gray-400 mt-1">Tap to view</p>}
+          </button>
+          <div className={ui.kpiCard}>
+            <p className={ui.kpiLabel}>Budget</p>
+            <p className={ui.kpiValue}>{formatINR(totalBudget)}</p>
+          </div>
         </div>
 
         {/* Budget bar */}
         {totalBudget > 0 && (
-          <div className={`border-4 border-black ${statusColor} p-4 shadow-[4px_4px_0_0_#000]`}>
-            <div className="mb-2 flex justify-between text-sm font-black uppercase">
+          <div className={`rounded-xl bg-gradient-to-r ${statusBg} p-5 shadow-md`}>
+            <div className="mb-2 flex justify-between text-sm font-semibold text-white/90">
               <span>Budget Used</span>
               <span>{statusLabel}</span>
             </div>
-            <div className="mb-2 h-6 w-full overflow-hidden border-2 border-black bg-white">
+            <div className="mb-2 h-3 w-full overflow-hidden rounded-full bg-white/30">
               <div
-                className="h-full bg-black transition-all"
+                className="h-full rounded-full bg-white transition-all"
                 style={{ width: `${Math.min(pctSpent, 100)}%` }}
               />
             </div>
-            <p className="text-2xl font-black">{pctSpent}% of {formatINR(totalBudget)}</p>
+            <p className="text-2xl font-bold text-white">{pctSpent}% of {formatINR(totalBudget)}</p>
           </div>
         )}
 
         {/* Category breakdown */}
         {categoryData.length > 0 && (
-          <section className="border-4 border-black bg-white p-4 shadow-[4px_4px_0_0_#000]">
-            <h2 className="mb-3 text-lg font-black uppercase">By Category</h2>
+          <section className={ui.card}>
+            <h2 className={ui.sectionTitle}>By Category</h2>
             <div className="h-48">
               <ResponsiveContainer>
                 <PieChart>
-                  <Pie
-                    data={categoryData}
-                    dataKey="value"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={70}
-                    stroke="#000"
-                    strokeWidth={2}
-                  >
+                  <Pie data={categoryData} dataKey="value" cx="50%" cy="50%" outerRadius={70} stroke="#fff" strokeWidth={2}>
                     {categoryData.map((d, i) => (
                       <Cell key={i} fill={d.color} />
                     ))}
                   </Pie>
-                  <Tooltip
-                    formatter={(v) => formatINR(Number(v))}
-                    contentStyle={{ border: '2px solid black', borderRadius: 0 }}
-                  />
+                  <Tooltip formatter={(v) => formatINR(Number(v))} contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 13 }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="mt-2 space-y-1">
+            <div className="mt-2 space-y-1.5">
               {categoryData.slice(0, 5).map((d) => (
                 <div key={d.name} className="flex justify-between text-sm">
-                  <span>
-                    {d.icon} {d.name}
-                  </span>
-                  <span className="font-bold">{formatINR(d.value)}</span>
+                  <span className="text-gray-600">{d.icon} {d.name}</span>
+                  <span className="font-semibold text-gray-900">{formatINR(d.value)}</span>
                 </div>
               ))}
             </div>
           </section>
         )}
 
-        {/* Payment mode breakdown */}
+        {/* Payment mode */}
         {paymentData.length > 0 && (
-          <section className="border-4 border-black bg-white p-4 shadow-[4px_4px_0_0_#000]">
-            <h2 className="mb-3 text-lg font-black uppercase">By Payment Mode</h2>
+          <section className={ui.card}>
+            <h2 className={ui.sectionTitle}>By Payment Mode</h2>
             <div className="h-44">
               <ResponsiveContainer>
                 <BarChart data={paymentData}>
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip
-                    formatter={(v) => formatINR(Number(v))}
-                    contentStyle={{ border: '2px solid black', borderRadius: 0 }}
-                  />
-                  <Bar dataKey="value" fill="#FFD93D" stroke="#000" strokeWidth={2} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={(v) => formatINR(Number(v))} contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 13 }} />
+                  <Bar dataKey="value" fill="#FFD93D" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -181,36 +172,31 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Outstanding credit modal */}
+      {/* Credit modal */}
       {showCredits && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-white">
-          <header className="flex items-center justify-between border-b-4 border-black bg-orange-200 px-4 py-3">
-            <h2 className="text-xl font-black uppercase">Outstanding Credit</h2>
-            <button
-              onClick={() => setShowCredits(false)}
-              className="flex h-10 w-10 items-center justify-center border-2 border-black bg-white shadow-[3px_3px_0_0_#000]"
-            >
-              <X strokeWidth={3} />
+        <div className="fixed inset-0 z-50 flex flex-col bg-gray-50">
+          <header className="flex items-center justify-between bg-gradient-to-r from-orange-400 to-orange-500 px-5 py-4">
+            <h2 className="text-lg font-bold text-white">Outstanding Credit</h2>
+            <button onClick={() => setShowCredits(false)} className={ui.btnIcon}>
+              <X className="h-5 w-5" strokeWidth={2.5} />
             </button>
           </header>
           <div className="flex-1 overflow-y-auto p-4">
-            <div className="mb-4 border-4 border-black bg-orange-100 p-4 shadow-[4px_4px_0_0_#000]">
-              <p className="text-xs font-black uppercase">Total Outstanding</p>
-              <p className="text-3xl font-black">{formatINR(totalCredit)}</p>
+            <div className="mb-4 rounded-xl bg-orange-50 border border-orange-200 p-5">
+              <p className={ui.kpiLabel}>Total Outstanding</p>
+              <p className="text-3xl font-bold text-orange-600">{formatINR(totalCredit)}</p>
             </div>
             <div className="space-y-2">
               {creditEntries.map((e) => {
                 const cat = allCategories[e.category] ?? { icon: '📌', label: e.category };
                 return (
-                  <div key={e.id} className="flex items-center gap-3 border-2 border-black p-3">
-                    <span className="text-2xl">{cat.icon}</span>
+                  <div key={e.id} className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm border border-gray-100">
+                    <span className="text-xl">{cat.icon}</span>
                     <div className="flex-1 overflow-hidden">
-                      <p className="truncate text-sm font-bold">{e.description}</p>
-                      <p className="text-xs text-gray-500">
-                        {format(new Date(e.entry_date), 'dd MMM')} · {cat.label}
-                      </p>
+                      <p className="truncate text-sm font-semibold">{e.description}</p>
+                      <p className="text-xs text-gray-400">{format(new Date(e.entry_date), 'dd MMM')} · {cat.label}</p>
                     </div>
-                    <p className="text-base font-black text-red-700">{formatINR(Number(e.amount))}</p>
+                    <p className="text-base font-bold text-red-600">{formatINR(Number(e.amount))}</p>
                   </div>
                 );
               })}
@@ -219,31 +205,5 @@ export default function DashboardPage() {
         </div>
       )}
     </main>
-  );
-}
-
-function KpiCard({
-  label,
-  value,
-  accent,
-  onClick,
-}: {
-  label: string;
-  value: string;
-  accent?: string;
-  onClick?: () => void;
-}) {
-  const Tag = onClick ? 'button' : 'div';
-  return (
-    <Tag
-      onClick={onClick}
-      className={`border-4 border-black ${accent ?? 'bg-white'} p-3 shadow-[4px_4px_0_0_#000] text-left ${
-        onClick ? 'active:translate-x-1 active:translate-y-1 active:shadow-none' : ''
-      }`}
-    >
-      <p className="text-xs font-black uppercase">{label}</p>
-      <p className="text-xl font-black">{value}</p>
-      {onClick && <p className="mt-1 text-[10px] text-gray-500">Tap to view</p>}
-    </Tag>
   );
 }
