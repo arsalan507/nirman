@@ -52,13 +52,20 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     setError(null);
     const { email, password, digits } = getCredentials();
 
-    const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+    // Try new format first
+    let { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
 
+    // Fallback: try old format (nirman.local + old password pattern)
     if (signInErr) {
-      // User doesn't exist — show register step
-      setStep('register');
-      setBusy(false);
-      return;
+      const oldEmail = `${digits}@nirman.local`;
+      const oldPassword = `nirman-${digits}-0000`;
+      const oldResult = await supabase.auth.signInWithPassword({ email: oldEmail, password: oldPassword });
+      if (oldResult.error) {
+        // Neither format worked — new user
+        setStep('register');
+        setBusy(false);
+        return;
+      }
     }
 
     // Load profile
@@ -68,6 +75,14 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       if (result) {
         setProfile(result.profile);
         setOrganization(result.organization);
+      } else {
+        // Old user exists in auth but no profile yet (pre-migration user)
+        // Create org + profile for them
+        const newResult = await createOrgAndProfile(userData.user.id, digits, 'Admin');
+        if (newResult) {
+          setProfile(newResult.profile);
+          setOrganization(newResult.organization);
+        }
       }
     }
     setBusy(false);
