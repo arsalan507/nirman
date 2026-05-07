@@ -3,6 +3,7 @@ import './globals.css';
 import Providers from '@/components/Providers';
 import BottomNav from '@/components/BottomNav';
 import AuthGate from '@/components/AuthGate';
+import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,8 +17,8 @@ export const metadata: Metadata = {
     title: 'Nirman',
   },
   icons: [
-    { rel: 'icon', url: '/icons/icon.svg', type: 'image/svg+xml' },
-    { rel: 'apple-touch-icon', url: '/icons/icon.svg' },
+    { rel: 'icon', url: '/icons/icon-192x192.png', type: 'image/png', sizes: '192x192' },
+    { rel: 'apple-touch-icon', url: '/icons/icon-192x192.png' },
   ],
 };
 
@@ -39,6 +40,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="bg-gray-50 text-gray-900 antialiased">
         <Providers>
+          <ServiceWorkerRegister />
           <AuthGate>
             <div className="mx-auto min-h-screen max-w-md pb-24">{children}</div>
             <BottomNav />
